@@ -1,14 +1,17 @@
 from flask import Flask, render_template, request, jsonify
 import os
 import json
+from dotenv import load_dotenv
 from google.genai import Client
+
+load_dotenv()
 
 app = Flask(__name__)
 
 # ===============================
 # CONFIGURACIÓN IA (GEMINI)
 # ===============================
-api_key = os.getenv("GEMINI_API_KEY", "AIzaSyDFj7y0jWJRY2kj-DyPc4Bp9S1O7wfc1C0")
+api_key = os.getenv("GEMINI_API_KEY")
 client = Client(api_key=api_key)
 
 # ===============================
