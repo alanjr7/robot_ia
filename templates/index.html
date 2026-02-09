@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Robot Repartidor</title>
+<style>
+  body { margin: 0; background: black; overflow: hidden; font-family: sans-serif; }
+  
+  /* El video del robot siempre en el centro */
+  #robot {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60%; /* Ajusta esto según el tamaño de tu pantalla */
+    z-index: 1;
+  }
+
+  /* Capa invisible (o con texto) para el primer click */
+  #overlay-inicio {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8); /* Fondo semitransparente */
+    color: #00ffaa;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 24px;
+    z-index: 9999; /* Siempre encima de todo */
+    cursor: pointer;
+    flex-direction: column;
+  }
+</style>
+</head>
+
+<body>
+
+    <video id="robot" src="/static/videos/feliz.mp4" autoplay loop muted></video>
+
+    <div id="overlay-inicio" onclick="iniciar()">
+       
+    </div>
+
+    <script src="/static/js/voz.js"></script>
+
+</body>
+</html>
