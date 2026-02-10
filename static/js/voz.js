@@ -5,7 +5,7 @@ const SpeechRecognition =
     window.SpeechRecognition || window.webkitSpeechRecognition;
 
 const recognition = new SpeechRecognition();
-recognition.lang = "es-BO";
+recognition.lang = "en-US";
 recognition.continuous = true;
 recognition.interimResults = false;
 
@@ -14,22 +14,41 @@ recognition.interimResults = false;
 // idle | escuchando | pensando | hablando
 // ===============================
 let estado = "idle";
+let idiomaActual = "es"; // Guardar el último idioma detectado
+
+// ===============================
+// CONTROL FLAGS (OBLIGATORIO)
+// ===============================
+let recognitionActivo = false;
+let speaking = false;
 
 // ===============================
 // IDLE
 // ===============================
 let temporizadorInactividad;
-const tiempoEspera = 18000; // 18s
+const tiempoEspera = 10000; // 10s
 
 const frasesRandom = [
-    { mensaje: "Hola, sigo trabajando.", gesto: "lado" },
-    { mensaje: "Entregar comida me gusta.", gesto: "feliz" },
-    { mensaje: "Todo está tranquilo.", gesto: "lado" },
-    { mensaje: "Un paso a la vez.", gesto: "lado" },
-    { mensaje: "Estoy aquí para ayudar.", gesto: "feliz" },
-    { mensaje: "Espero que estés bien.", gesto: "feliz" },
-    { mensaje: "Algo se siente raro.", gesto: "sospecha" }
+    { mensaje: { es: "A Dinner le gusta que lo llamen por su nombre. Decí 'Dinner' y te escucho", en: "Dinner likes to be called by name. Say 'Dinner' and I'll listen" }, gesto: "lado" },
+    { mensaje: { es: "Regla básica: si no decís 'Dinner', sigo comiendo bits.", en: "Basic rule: if you don't say 'Dinner', I keep eating bits" }, gesto: "sospecha" },
+    { mensaje: { es: "¿Querés hablar conmigo? Fácil: decí 'Dinner' primero.", en: "Want to talk to me? Easy: say 'Dinner' first" }, gesto: "feliz" },
+    { mensaje: { es: "Estoy en standby… activame diciendo 'Dinner'.", en: "I'm on standby... activate me by saying 'Dinner'" }, gesto: "lado" },
+    { mensaje: { es: "Dinner no responde a gritos, solo a su nombre", en: "Dinner doesn't respond to shouts, only to its name" }, gesto: "sospecha" },
+
+    { mensaje: { es: "Escaneando antojos… resultado: TODO. (Después de decir 'Dinner').", en: "Scanning cravings... result: EVERYTHING. (After saying 'Dinner')." }, gesto: "sospecha" },
+    { mensaje: { es: "Confirmado: decir 'Dinner' fue una excelente decisión.", en: "Confirmed: saying 'Dinner' was an excellent decision" }, gesto: "feliz" },
+    { mensaje: { es: "El hambre no negocia… pero Dinner sí, si lo llamás.", en: "Hunger doesn't negotiate... but Dinner does, if you call it" }, gesto: "lado" },
+    { mensaje: { es: "Procesando pedido… activación por palabra clave detectada.", en: "Processing order... keyword activation detected" }, gesto: "sospecha" },
+    { mensaje: { es: "Nivel de felicidad subiendo desde que dijiste 'Dinner'.", en: "Happiness level rising since you said 'Dinner'" }, gesto: "feliz" },
+
+    { mensaje: { es: "Comida en camino… wake word correcta, paciencia en cooldown.", en: "Food on the way... correct wake word, patience on cooldown" }, gesto: "lado" },
+    { mensaje: { es: "Alerta: decir 'Dinner' puede generar respuestas automáticas.", en: "Alert: saying 'Dinner' may generate automatic responses" }, gesto: "sospecha" },
+    { mensaje: { es: "El universo aprueba que llames a Dinner por su nombre.", en: "The universe approves that you call Dinner by its name" }, gesto: "feliz" },
+    { mensaje: { es: "Hambre derrotada tras pronunciación correcta de 'Dinner'.", en: "Hunger defeated after correct pronunciation of 'Dinner'" }, gesto: "feliz" },
+    { mensaje: { es: "Comer solo es triste… por suerte llamaste a Dinner.", en: "Eating alone is sad... luckily you called Dinner" }, gesto: "lado" }
 ];
+
+
 
 // ===============================
 // VOZ
@@ -49,18 +68,27 @@ function cargarVoces() {
 
 speechSynthesis.onvoiceschanged = cargarVoces;
 
+
 // ===============================
 // HELPERS
 // ===============================
 function iniciarEscucha() {
+    if (recognitionActivo || speaking) return;
+
     try {
         recognition.start();
+        recognitionActivo = true;
+        console.log("🎤 Escuchando...");
     } catch (_) {}
 }
 
 function detenerEscucha() {
+    if (!recognitionActivo) return;
+
     try {
         recognition.stop();
+        recognitionActivo = false;
+        console.log("🛑 Escucha detenida");
     } catch (_) {}
 }
 
@@ -71,12 +99,15 @@ function activarIdle() {
         if (estado !== "escuchando") return;
 
         estado = "hablando";
-        const accion =
-            frasesRandom[Math.floor(Math.random() * frasesRandom.length)];
+        const accion = frasesRandom[Math.floor(Math.random() * frasesRandom.length)];
 
         detenerEscucha();
         cambiarGesto(accion.gesto);
-        hablar(accion.mensaje);
+        
+        // Usar el último idioma detectado para las frases aleatorias
+        const mensaje = accion.mensaje[idiomaActual] || accion.mensaje.es;
+        
+        hablar(mensaje);
     }, tiempoEspera);
 }
 
@@ -104,12 +135,17 @@ recognition.onresult = async (event) => {
 
     activarIdle();
 
-    const ultimo = event.results[event.results.length - 1];
-    const texto = ultimo[0].transcript.toLowerCase().trim();
+    // Capturar todos los resultados, no solo el último
+    let textoCompleto = "";
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+        textoCompleto += event.results[i][0].transcript + " ";
+    }
+    textoCompleto = textoCompleto.toLowerCase().trim();
 
-    console.log("Escuchado:", texto);
+    console.log("Escuchado:", textoCompleto);
 
-    const esWakeWord = /\b(dinner|diner)\b/.test(texto);
+    // Regex más tolerante sin \b
+    const esWakeWord = /(dinner|diner)/i.test(textoCompleto);
     if (!esWakeWord) return;
 
     estado = "pensando";
@@ -120,13 +156,17 @@ recognition.onresult = async (event) => {
         const res = await fetch("/procesar", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ texto })
+            body: JSON.stringify({ texto: textoCompleto })
         });
 
         const data = await res.json();
 
         estado = "hablando";
         cambiarGesto(data.gesto || "lado");
+        
+        // Usar idioma explícito del backend
+        idiomaActual = data.idioma || "es";
+        
         hablar(data.mensaje || "Hola...");
 
     } catch (e) {
@@ -141,15 +181,16 @@ recognition.onresult = async (event) => {
 // MANTENER ESCUCHA
 // ===============================
 recognition.onend = () => {
-    if (estado === "escuchando") {
-        iniciarEscucha();
-    }
+    recognitionActivo = false;
+    console.log("🎧 Recognition ended");
 };
 
 recognition.onerror = (e) => {
-    console.error("Speech error:", e.error);
-    if (estado === "escuchando") {
-        setTimeout(iniciarEscucha, 1000);
+    recognitionActivo = false;
+    console.warn("Speech error:", e.error);
+
+    if (estado === "escuchando" && !speaking) {
+        setTimeout(iniciarEscucha, 800);
     }
 };
 
@@ -157,26 +198,32 @@ recognition.onerror = (e) => {
 // HABLAR
 // ===============================
 function hablar(texto) {
+    if (speaking) return;
+
+    speaking = true;
     detenerEscucha();
 
     const utterance = new SpeechSynthesisUtterance(texto);
 
-    if (vozPreferida) {
-        utterance.voice = vozPreferida;
-        utterance.lang = vozPreferida.lang;
-    } else {
-        utterance.lang = "es-MX";
-    }
-
-    utterance.rate = 1.0;
+    utterance.lang = idiomaActual === "en" ? "en-US" : "es-MX";
+    utterance.rate = 1;
     utterance.pitch = 1.1;
 
+    if (vozPreferida) {
+        utterance.voice = vozPreferida;
+    }
+
     utterance.onend = () => {
+        speaking = false;
         estado = "escuchando";
-        iniciarEscucha();
-        activarIdle();
+
+        setTimeout(() => {
+            iniciarEscucha();
+            activarIdle();
+        }, 300);
     };
 
+    speechSynthesis.cancel(); // 🔥 clave
     speechSynthesis.speak(utterance);
 }
 
